@@ -1,13 +1,25 @@
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+import Sidebar from "./components/Sidebar";
+import Dashboard from "./pages/Dashboard";
+import Upload from "./pages/Upload";
+import Anomalies from "./pages/Anomalies";
+import Login from "./pages/Login";
+
 function App() {
   return (
-    <div className="min-h-screen bg-blue-50 flex items-center justify-center">
-      <div className="bg-white rounded-lg shadow-md p-8">
-        <h1 className="text-3xl font-bold text-blue-800">
-          Water Quality Monitor
-        </h1>
-        <p className="text-gray-500 mt-2">Setup complete ✅</p>
+    <BrowserRouter>
+      <div className="flex">
+        <Sidebar />
+        <main className="flex-1 bg-gray-50 min-h-screen p-8">
+          <Routes>
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/upload" element={<Upload />} />
+            <Route path="/anomalies" element={<Anomalies />} />
+            <Route path="/login" element={<Login />} />
+          </Routes>
+        </main>
       </div>
-    </div>
+    </BrowserRouter>
   );
 }
 
