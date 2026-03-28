@@ -1,71 +1,52 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-import torch
-import torch.nn as nn
-from torchvision import models, transforms
-from PIL import Image
-import io
+import joblib
+import pandas as pd
 
 app = Flask(__name__)
-CORS(app)
+# This allows React (Port 5173) to talk directly to Python (Port 5000)
+CORS(app) 
 
-# --- AI SETUP ---
-print("🧠 Loading PyTorch Brain...")
-# 1. Recreate the exact brain structure we trained
-model = models.resnet18(weights=None) # We don't need internet weights anymore
-num_ftrs = model.fc.in_features
-model.fc = nn.Linear(num_ftrs, 2) # 2 classes (ANOMALY, NORMAL)
-
-# 2. Load the memories (weights) we just saved
-model.load_state_dict(torch.load('water_model.pth', weights_only=True))
-model.eval() # Set to evaluation mode (no learning, just predicting)
-
-# 3. Same preprocessing as training so the AI recognizes the pixels
-transform = transforms.Compose([
-    transforms.Resize((224, 224)),
-    transforms.ToTensor(),
-    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-])
+print("🧠 Loading AI Forecasting Engine...")
+# Load the Random Forest model we just trained
+model = joblib.load('forecast_model.pkl')
 print("✅ Brain Loaded and Ready!")
 
 @app.route('/predict', methods=['POST'])
-def analyze_image():
-    if 'file' not in request.files:
-        return jsonify({"error": "No file uploaded"}), 400
-    
-    file = request.files['file']
-    
+def predict():
     try:
-        # Open the image file
-        img = Image.open(file.stream).convert('RGB')
+        # 1. Catch the JSON numbers sent by React
+        data = request.json
         
-        # Preprocess the image to a PyTorch Tensor
-        input_tensor = transform(img)
-        input_batch = input_tensor.unsqueeze(0) # Add a batch dimension [1, 3, 224, 224]
+        temp = float(data.get('temperature', 24.0))
+        oxy = float(data.get('oxygen', 8.0))
+        turb = float(data.get('turbidity', 3.0))
+        ph = float(data.get('ph', 7.2))
+
+        # 2. Package them into a Pandas DataFrame
+        features = pd.DataFrame([[temp, oxy, turb, ph]], 
+                                columns=['temperature', 'oxygen', 'turbidity', 'ph'])
         
-        # Run it through the neural network!
-        with torch.no_grad(): # Turn off gradient math to save memory
-            output = model(input_batch)
-            
-        # Calculate percentages (Softmax)
-        probabilities = torch.nn.functional.softmax(output[0], dim=0)
-        confidence, predicted_idx = torch.max(probabilities, 0)
+        # 3. Look into the future!
+        prediction = model.predict(features)[0]
+        future_ph = prediction[0]
+        future_turbidity = prediction[1]
+
+        # 4. Check if the FUTURE state is dangerous
+        is_threat = future_ph < 6.5 or future_ph > 8.5 or future_turbidity > 5.0
         
-        confidence_score = float(confidence.item())
-        class_idx = int(predicted_idx.item())
-        
-        # Map index 0 to ANOMALY and 1 to NORMAL based on your training
-        if class_idx == 0:
-            status = "ANOMALY"
-            message = "Visual analysis detected high turbidity or discoloration indicative of contamination."
+        if is_threat:
+            status = "CRITICAL FORECAST"
+            message = f"🚨 WARNING: AI predicts pH will hit {future_ph:.2f} and turbidity {future_turbidity:.2f} in the next 12 hours. Imminent contamination risk."
         else:
-            status = "NORMAL"
-            message = "Water sample appears clear and within safe visual parameters."
-            
+            status = "SAFE FORECAST"
+            message = f"✅ Ecosystem stable. Projected 12-hour pH: {future_ph:.2f}, Turbidity: {future_turbidity:.2f}. No anomalies detected."
+
         return jsonify({
             "status": status,
-            "confidence": confidence_score,
-            "message": message
+            "message": message,
+            "future_ph": round(future_ph, 2),
+            "future_turbidity": round(future_turbidity, 2)
         })
         
     except Exception as e:

@@ -79,34 +79,46 @@ function Dashboard() {
       .catch((error) => console.error("Error saving data:", error));
   };
 
-  const handleImageUpload = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
+  // NEW: Predictive Forecasting Function hitting Port 5000 directly
+  const handleAIForecast = (e) => {
+    e.preventDefault();
+
+    // Check if the user actually typed numbers in first
+    if (
+      !formData.ph ||
+      !formData.turbidity ||
+      !formData.temperature ||
+      !formData.dissolvedOxygen
+    ) {
+      alert(
+        "⚠️ Please fill in all current sensor readings below before running the forecast!",
+      );
+      return;
+    }
 
     setIsAILoading(true);
-    const imagePayload = new FormData();
-    imagePayload.append("file", file);
 
-    fetch("http://localhost:8080/api/readings/analyze", {
+    // Hit the Python microservice directly!
+    fetch("http://localhost:5000/predict", {
       method: "POST",
-      body: imagePayload,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        temperature: formData.temperature,
+        oxygen: formData.dissolvedOxygen,
+        turbidity: formData.turbidity,
+        ph: formData.ph,
+      }),
     })
       .then((response) => response.json())
       .then((aiData) => {
         setIsAILoading(false);
-        alert(
-          `🧠 AI Analysis Complete!\n\nDiagnosis: ${aiData.status}\nConfidence: ${aiData.confidence * 100}%\nMessage: ${aiData.message}`,
-        );
-
-        if (aiData.status === "ANOMALY") {
-          setFormData({
-            location: "AI-Scanned-Sample",
-            ph: 9.5,
-            turbidity: 12.0,
-            temperature: 28.0,
-            dissolvedOxygen: 2.1,
-          });
+        if (aiData.error) {
+          alert("AI Error: " + aiData.error);
+          return;
         }
+        alert(
+          `🔮 AI Future Forecast Complete!\n\nStatus: ${aiData.status}\n\n${aiData.message}`,
+        );
       })
       .catch((error) => {
         console.error("AI Error:", error);
@@ -139,8 +151,6 @@ function Dashboard() {
     );
 
   return (
-    // MAIN BACKGROUND using your off-white #F4F4F4
-    // NOTE: We removed the nested <nav> from here. It is now handled globally in App.jsx!
     <div className="min-h-screen bg-[#F4F4F4] font-sans pb-12">
       {/* 1. THE HERO SECTION (Gradient from Deep Teal to Mid Teal) */}
       <div className="bg-gradient-to-r from-[#005461] to-[#018790] pt-12 pb-28 px-8 text-center relative z-10">
@@ -161,7 +171,7 @@ function Dashboard() {
         </button>
       </div>
 
-      {/* 2. MAIN DASHBOARD CONTENT (Pulled up with -mt-16 to float over the hero) */}
+      {/* 2. MAIN DASHBOARD CONTENT */}
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 -mt-16 relative z-20">
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
@@ -191,7 +201,7 @@ function Dashboard() {
           </div>
         </div>
 
-        {/* pH Trend Area Chart (Upgraded to AreaChart!) */}
+        {/* pH Trend Area Chart */}
         <div className="bg-white rounded-2xl shadow-xl shadow-gray-200/50 p-8 mb-8">
           <h2 className="text-xl font-bold text-[#005461] mb-6">
             Live pH Telemetry
@@ -199,7 +209,6 @@ function Dashboard() {
           <ResponsiveContainer width="100%" height={280}>
             <AreaChart data={readings}>
               <defs>
-                {/* This creates the beautiful fade effect under the line */}
                 <linearGradient id="colorPh" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="#00B7B5" stopOpacity={0.3} />
                   <stop offset="95%" stopColor="#00B7B5" stopOpacity={0} />
@@ -301,7 +310,7 @@ function Dashboard() {
         </div>
       </div>
 
-      {/* 3. THE MODAL (Clean, White, and Rounded) */}
+      {/* 3. THE MODAL */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-[#005461]/60 backdrop-blur-sm flex justify-center items-center z-50 p-4">
           <div className="bg-white p-8 rounded-3xl shadow-2xl w-[550px] max-w-full">
@@ -309,25 +318,24 @@ function Dashboard() {
               {editingId ? "Update Reading" : "New Sensor Data"}
             </h2>
 
-            {/* AI UPLOAD BOX (Themed with your colors) */}
+            {/* AI PREDICTIVE FORECAST BOX */}
             {!editingId && (
               <div className="mb-8 p-6 border-2 border-dashed border-[#00B7B5]/50 bg-[#00B7B5]/5 rounded-2xl text-center transition-all hover:bg-[#00B7B5]/10">
                 <p className="text-[#018790] font-bold mb-3 flex items-center justify-center gap-2">
-                  <span className="text-xl">🤖</span> AI Vision Scanner
+                  <span className="text-xl">🔮</span> AI Predictive Engine
                 </p>
                 <p className="text-sm text-gray-500 mb-4">
-                  Upload a water sample image for instant PyTorch analysis.
+                  Type the current sensor telemetry below, then run the AI to
+                  forecast ecosystem stability 12 hours into the future.
                 </p>
-                <label className="cursor-pointer bg-[#00B7B5] hover:bg-[#018790] text-white text-sm font-bold py-2.5 px-6 rounded-full shadow-md transition duration-200 inline-block">
-                  {isAILoading ? "Running Neural Network..." : "Upload Image"}
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleImageUpload}
-                    className="hidden"
-                    disabled={isAILoading}
-                  />
-                </label>
+                <button
+                  type="button"
+                  onClick={handleAIForecast}
+                  disabled={isAILoading}
+                  className="bg-[#00B7B5] hover:bg-[#018790] text-white text-sm font-bold py-2.5 px-6 rounded-full shadow-md transition duration-200 inline-block"
+                >
+                  {isAILoading ? "Calculating Future..." : "Run AI Forecast"}
+                </button>
               </div>
             )}
 
