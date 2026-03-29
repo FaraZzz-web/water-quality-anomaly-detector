@@ -20,9 +20,8 @@ function Dashboard() {
   const [isAILoading, setIsAILoading] = useState(false);
   const [forecastReport, setForecastReport] = useState(null);
   const [isDispatched, setIsDispatched] = useState(false);
-  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false); // New state for PDF loading
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
 
-  // Ref to target the specific UI element we want to turn into a PDF
   const reportRef = useRef(null);
 
   const [formData, setFormData] = useState({
@@ -73,20 +72,42 @@ function Dashboard() {
   };
 
   const handleSubmit = (e) => {
-    e.preventDefault();
+    if (e) e.preventDefault();
+
     const url = editingId
       ? `http://localhost:8080/api/readings/${editingId}`
       : "http://localhost:8080/api/readings";
     const method = editingId ? "PUT" : "POST";
 
+    const isCritical = forecastReport
+      ? forecastReport.status.includes("CRITICAL")
+      : false;
+
+    // THE KEY FIX: Added 'id: editingId' and 'timestamp' refresh
+    const finalPayload = {
+      ...formData,
+      id: editingId, // Essential for Java to correctly overwrite the record
+      timestamp: new Date().toISOString(), // This forces the time to update to 'Now'
+      status: forecastReport
+        ? isCritical
+          ? "CRITICAL"
+          : "SAFE"
+        : "MANUAL_UPDATE",
+      valveClosed: isCritical,
+    };
+
     fetch(url, {
       method: method,
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(formData),
+      body: JSON.stringify(finalPayload),
     })
+      .then((response) => {
+        if (!response.ok) throw new Error("Update failed");
+        return response.json();
+      })
       .then(() => {
         closeModal();
-        fetchReadings();
+        fetchReadings(); // Refreshes the table with fresh data from Postgres
       })
       .catch((error) => console.error("Error saving data:", error));
   };
@@ -99,9 +120,7 @@ function Dashboard() {
       !formData.temperature ||
       !formData.dissolvedOxygen
     ) {
-      alert(
-        "⚠️ Please fill in all current sensor readings below before running the forecast!",
-      );
+      alert("⚠️ Please fill in all sensor readings before running the AI!");
       return;
     }
 
@@ -130,7 +149,7 @@ function Dashboard() {
       })
       .catch((error) => {
         console.error("AI Error:", error);
-        alert("Failed to reach the AI brain. Is the Python server running?");
+        alert("AI Server Unreachable. Check Python backend.");
         setIsAILoading(false);
       });
   };
@@ -149,27 +168,19 @@ function Dashboard() {
     });
   };
 
-  // --- NEW: PDF Generation Function ---
   const handleDownloadPDF = async () => {
     setIsGeneratingPDF(true);
     const element = reportRef.current;
-
     try {
-      // Take a picture of the targeted HTML div
       const canvas = await html2canvas(element, { scale: 2 });
       const imgData = canvas.toDataURL("image/png");
-
-      // Calculate PDF dimensions (A4 size)
       const pdf = new jsPDF("p", "mm", "a4");
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-
-      // Paste the picture into the PDF and trigger download
       pdf.addImage(imgData, "PNG", 0, 10, pdfWidth, pdfHeight);
-      pdf.save(`AI_Threat_Assessment_${formData.location || "Sector"}.pdf`);
+      pdf.save(`Assessment_${formData.location || "Report"}.pdf`);
     } catch (error) {
-      console.error("PDF Generation failed:", error);
-      alert("Failed to generate PDF document.");
+      console.error("PDF Error:", error);
     } finally {
       setIsGeneratingPDF(false);
     }
@@ -181,39 +192,37 @@ function Dashboard() {
       risks.push(
         "Corrosion of lead/copper pipes causing heavy metal poisoning.",
       );
-    if (ph > 8.5)
-      risks.push(
-        "Skin irritation, gastrointestinal issues, and decreased chlorine effectiveness.",
-      );
+    if (ph > 8.5) risks.push("Skin irritation and gastrointestinal issues.");
     if (turbidity > 5.0)
-      risks.push(
-        "High risk of waterborne pathogens (E. Coli, Cholera, Giardia).",
-      );
+      risks.push("High risk of waterborne pathogens (E. Coli, Cholera).");
     if (risks.length === 0)
       risks.push("No immediate biological or chemical threats detected.");
     return risks;
   };
 
   const totalReadings = readings.length;
-  const anomalyCount = readings.filter((r) => r.status === "ANOMALY").length;
-  const normalCount = readings.filter((r) => r.status !== "ANOMALY").length;
+  // Updated filter to count both old "ANOMALY" and new "CRITICAL" labels
+  const anomalyCount = readings.filter(
+    (r) => r.status === "CRITICAL" || r.status === "ANOMALY",
+  ).length;
+  const normalCount = totalReadings - anomalyCount;
 
   if (isLoading)
     return (
       <div className="p-8 text-[#005461] font-bold text-center mt-20">
-        Loading secure data from PostgreSQL...
+        Loading Database...
       </div>
     );
 
   return (
     <div className="min-h-screen bg-[#F4F4F4] font-sans pb-12">
-      {/* 1. HERO SECTION */}
       <div className="bg-gradient-to-r from-[#005461] to-[#018790] pt-12 pb-28 px-8 text-center relative z-10">
         <h1 className="text-3xl md:text-5xl font-bold text-white mb-4 tracking-tight">
           Water Quality Intelligence
         </h1>
         <p className="text-white/80 text-lg max-w-2xl mx-auto mb-8">
-          AI-powered anomaly detection and environmental telemetry forecasting.
+          AI-powered anomaly detection, IoT automation, and environmental
+          forecasting.
         </p>
         <button
           onClick={() => {
@@ -226,9 +235,7 @@ function Dashboard() {
         </button>
       </div>
 
-      {/* 2. MAIN DASHBOARD CONTENT */}
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 -mt-16 relative z-20">
-        {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <div className="bg-white rounded-2xl shadow-xl shadow-gray-200/50 p-6 flex flex-col justify-center items-center text-center">
             <p className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-1">
@@ -240,7 +247,7 @@ function Dashboard() {
           </div>
           <div className="bg-white rounded-2xl shadow-xl shadow-gray-200/50 p-6 flex flex-col justify-center items-center text-center">
             <p className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-1">
-              Anomalies Detected
+              Critical Events
             </p>
             <p className="text-4xl font-extrabold text-red-500">
               {anomalyCount}
@@ -256,7 +263,6 @@ function Dashboard() {
           </div>
         </div>
 
-        {/* pH Trend Area Chart */}
         <div className="bg-white rounded-2xl shadow-xl shadow-gray-200/50 p-8 mb-8">
           <h2 className="text-xl font-bold text-[#005461] mb-6">
             Live pH Telemetry
@@ -301,11 +307,10 @@ function Dashboard() {
           </ResponsiveContainer>
         </div>
 
-        {/* Readings Table */}
         <div className="bg-white rounded-2xl shadow-xl shadow-gray-200/50 overflow-hidden">
           <div className="p-6 border-b border-gray-100">
             <h2 className="text-xl font-bold text-[#005461]">
-              Recent Data Logs
+              Intelligence Log & Hardware Status
             </h2>
           </div>
           <table className="w-full text-sm text-left">
@@ -316,7 +321,8 @@ function Dashboard() {
                 <th className="px-6 py-4">Turbidity</th>
                 <th className="px-6 py-4">Temp (°C)</th>
                 <th className="px-6 py-4">Timestamp</th>
-                <th className="px-6 py-4">Status</th>
+                <th className="px-6 py-4">AI Status</th>
+                <th className="px-6 py-4 text-center">IoT Valve</th>
                 <th className="px-6 py-4 text-center">Action</th>
               </tr>
             </thead>
@@ -341,10 +347,28 @@ function Dashboard() {
                   </td>
                   <td className="px-6 py-4">
                     <span
-                      className={`px-3 py-1 rounded-full text-xs font-bold ${reading.status === "ANOMALY" ? "bg-red-50 text-red-600 border border-red-200" : "bg-[#00B7B5]/10 text-[#018790] border border-[#00B7B5]/20"}`}
+                      className={`px-3 py-1 rounded-full text-xs font-bold ${
+                        reading.status === "CRITICAL" ||
+                        reading.status === "ANOMALY"
+                          ? "bg-red-50 text-red-600 border border-red-200"
+                          : "bg-[#00B7B5]/10 text-[#018790] border border-[#00B7B5]/20"
+                      }`}
                     >
                       {reading.status}
                     </span>
+                  </td>
+                  <td className="px-6 py-4 text-center">
+                    {reading.valveClosed ? (
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-red-100 text-red-700 font-bold text-xs border border-red-200">
+                        <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>{" "}
+                        CLOSED
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-green-50 text-green-700 font-bold text-xs border border-green-200">
+                        <span className="w-2 h-2 rounded-full bg-green-500"></span>{" "}
+                        OPEN
+                      </span>
+                    )}
                   </td>
                   <td className="px-6 py-4 text-center">
                     <button
@@ -361,14 +385,11 @@ function Dashboard() {
         </div>
       </div>
 
-      {/* 3. THE MODAL */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-[#005461]/80 backdrop-blur-md flex justify-center items-center z-50 p-4">
           <div className="bg-white p-8 rounded-3xl shadow-2xl w-[600px] max-w-full max-h-[90vh] overflow-y-auto">
-            {/* If we have a forecast report, show the beautiful Intelligence Report UI */}
             {forecastReport ? (
               <div className="animate-fade-in">
-                {/* PDF CAPTURE WRAPPER - Everything inside here goes into the PDF */}
                 <div ref={reportRef} className="bg-white p-4 -m-4 mb-4">
                   <div className="flex justify-between items-start mb-6">
                     <h2 className="text-2xl font-black text-gray-800 tracking-tight">
@@ -401,6 +422,44 @@ function Dashboard() {
                       >
                         {forecastReport.future_turbidity}
                       </p>
+                    </div>
+                  </div>
+
+                  <div className="mb-6">
+                    <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-3 flex items-center gap-2">
+                      <span className="text-blue-500">⚙️</span> IoT Hardware
+                      Status
+                    </h3>
+                    <div
+                      className={`p-4 rounded-xl border-2 flex items-center justify-between transition-all duration-500 ${
+                        forecastReport.status.includes("CRITICAL")
+                          ? "bg-red-50 border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.2)]"
+                          : "bg-green-50 border-green-400"
+                      }`}
+                    >
+                      <div className="flex items-center gap-4">
+                        <div
+                          className={`w-12 h-12 rounded-full flex items-center justify-center text-xl shadow-inner ${forecastReport.status.includes("CRITICAL") ? "bg-red-500 text-white animate-pulse" : "bg-green-500 text-white"}`}
+                        >
+                          {forecastReport.status.includes("CRITICAL")
+                            ? "🔒"
+                            : "🌊"}
+                        </div>
+                        <div>
+                          <p
+                            className={`font-black tracking-wide ${forecastReport.status.includes("CRITICAL") ? "text-red-600" : "text-green-700"}`}
+                          >
+                            {forecastReport.status.includes("CRITICAL")
+                              ? "AUTONOMOUS LOCKDOWN ENGAGED"
+                              : "VALVE OPEN - FLOW NORMAL"}
+                          </p>
+                          <p className="text-xs text-gray-600 font-medium mt-1">
+                            {forecastReport.status.includes("CRITICAL")
+                              ? "Main supply severed. Contamination isolated."
+                              : "Safe water distribution active."}
+                          </p>
+                        </div>
+                      </div>
                     </div>
                   </div>
 
@@ -437,26 +496,19 @@ function Dashboard() {
                       <p className="font-bold mb-1">
                         Target Authority:{" "}
                         <span className="text-gray-900 font-medium">
-                          Municipal Water Quality Board (
-                          {formData.location || "Sector 4"})
+                          Municipal Water Quality Board ({formData.location})
                         </span>
                       </p>
                       <p className="font-bold">
                         Contact Protocol:{" "}
                         <span className="text-gray-900 font-medium">
                           +1 (800) 555-H2O
-                        </span>{" "}
-                        or{" "}
-                        <span className="text-blue-600 underline cursor-pointer">
-                          dispatch@aqua-authority.gov
                         </span>
                       </p>
                     </div>
                   </div>
                 </div>
-                {/* END PDF CAPTURE WRAPPER */}
 
-                {/* Buttons (These are OUTSIDE the PDF wrapper so they don't print on the document) */}
                 <div className="flex flex-col gap-3">
                   <div className="flex gap-3">
                     <button
@@ -473,75 +525,69 @@ function Dashboard() {
                             method: "POST",
                             headers: { "Content-Type": "application/json" },
                             body: JSON.stringify({
-                              location: formData.location || "Sector 4",
+                              location: formData.location,
                               ph: forecastReport.future_ph,
                               turbidity: forecastReport.future_turbidity,
                             }),
                           })
-                            .then((res) => res.json())
-                            .then((data) => {
-                              if (data.error) {
-                                alert("SMS Failed: " + data.error);
-                                setIsDispatched(false);
-                              }
-                            })
-                            .catch((err) => {
-                              console.error(err);
-                              alert("Failed to send SMS.");
-                              setIsDispatched(false);
-                            });
+                            .then(() => setIsDispatched(true))
+                            .catch(() => setIsDispatched(false));
                         }}
                         disabled={isDispatched}
-                        className={`flex-1 font-bold py-3.5 rounded-xl shadow-lg transition-all ${isDispatched ? "bg-green-500 text-white cursor-not-allowed" : "bg-red-600 hover:bg-red-700 text-white shadow-red-500/30 hover:-translate-y-0.5"}`}
+                        className={`flex-1 font-bold py-3.5 rounded-xl shadow-lg transition-all ${isDispatched ? "bg-green-500 text-white" : "bg-red-600 hover:bg-red-700 text-white"}`}
                       >
                         {isDispatched
-                          ? "✅ Protocol Dispatched"
+                          ? "✅ Manual Protocol Dispatched"
                           : "Dispatch Emergency Protocol"}
                       </button>
                     )}
                   </div>
-                  {/* NEW PDF DOWNLOAD BUTTON */}
                   <button
-                    onClick={handleDownloadPDF}
+                    onClick={() => {
+                      handleSubmit();
+                      handleDownloadPDF();
+                    }}
                     disabled={isGeneratingPDF}
                     className="w-full bg-[#005461] hover:bg-[#018790] text-white font-bold py-3.5 rounded-xl transition-all shadow-md flex justify-center items-center gap-2"
                   >
                     {isGeneratingPDF
-                      ? "Generating Document..."
-                      : "📄 Download Official PDF Report"}
+                      ? "Saving & Generating..."
+                      : "💾 Update Entry & Download PDF"}
                   </button>
                 </div>
               </div>
             ) : (
-              /* Standard input form */
               <div>
                 <h2 className="text-2xl font-bold text-[#005461] mb-6">
-                  {editingId ? "Update Reading" : "New Sensor Data"}
+                  {editingId ? "Update Existing Reading" : "New Sensor Data"}
                 </h2>
+                <div className="mb-8 p-6 border-2 border-dashed border-[#00B7B5]/50 bg-[#00B7B5]/5 rounded-2xl text-center">
+                  <p className="text-[#018790] font-bold mb-3 flex items-center justify-center gap-2">
+                    <span className="text-xl">🔮</span> AI Verification Required
+                  </p>
+                  <p className="text-sm text-gray-500 mb-4">
+                    To update this record and ensure the IoT Valve reacts
+                    correctly, you must re-run the AI Forecast for the edited
+                    data.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleAIForecast}
+                    disabled={isAILoading}
+                    className="bg-[#00B7B5] hover:bg-[#018790] text-white text-sm font-bold py-2.5 px-6 rounded-full shadow-md transition duration-200"
+                  >
+                    {isAILoading ? "Verifying Data..." : "Run AI Verification"}
+                  </button>
+                </div>
 
-                {!editingId && (
-                  <div className="mb-8 p-6 border-2 border-dashed border-[#00B7B5]/50 bg-[#00B7B5]/5 rounded-2xl text-center transition-all hover:bg-[#00B7B5]/10">
-                    <p className="text-[#018790] font-bold mb-3 flex items-center justify-center gap-2">
-                      <span className="text-xl">🔮</span> AI Predictive Engine
-                    </p>
-                    <p className="text-sm text-gray-500 mb-4">
-                      Type the current sensor telemetry below, then run the AI
-                      to forecast ecosystem stability 12 hours into the future.
-                    </p>
-                    <button
-                      type="button"
-                      onClick={handleAIForecast}
-                      disabled={isAILoading}
-                      className="bg-[#00B7B5] hover:bg-[#018790] text-white text-sm font-bold py-2.5 px-6 rounded-full shadow-md transition duration-200 inline-block"
-                    >
-                      {isAILoading
-                        ? "Calculating Future..."
-                        : "Run AI Forecast"}
-                    </button>
-                  </div>
-                )}
-
-                <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    // In a production app, we would enable the button,
+                    // but for this flow, we force the AI verification button above.
+                  }}
+                  className="flex flex-col gap-5"
+                >
                   <div>
                     <label className="block text-sm font-bold text-[#018790] mb-1.5">
                       Location Name
@@ -553,7 +599,7 @@ function Dashboard() {
                       onChange={(e) =>
                         setFormData({ ...formData, location: e.target.value })
                       }
-                      className="w-full border-2 border-gray-200 p-3 rounded-xl focus:outline-none focus:border-[#00B7B5] transition-colors"
+                      className="w-full border-2 border-gray-200 p-3 rounded-xl focus:border-[#00B7B5]"
                     />
                   </div>
                   <div className="flex gap-4">
@@ -572,7 +618,7 @@ function Dashboard() {
                             ph: parseFloat(e.target.value),
                           })
                         }
-                        className="w-full border-2 border-gray-200 p-3 rounded-xl focus:outline-none focus:border-[#00B7B5] transition-colors"
+                        className="w-full border-2 border-gray-200 p-3 rounded-xl"
                       />
                     </div>
                     <div className="flex-1">
@@ -590,7 +636,7 @@ function Dashboard() {
                             turbidity: parseFloat(e.target.value),
                           })
                         }
-                        className="w-full border-2 border-gray-200 p-3 rounded-xl focus:outline-none focus:border-[#00B7B5] transition-colors"
+                        className="w-full border-2 border-gray-200 p-3 rounded-xl"
                       />
                     </div>
                   </div>
@@ -610,7 +656,7 @@ function Dashboard() {
                             temperature: parseFloat(e.target.value),
                           })
                         }
-                        className="w-full border-2 border-gray-200 p-3 rounded-xl focus:outline-none focus:border-[#00B7B5] transition-colors"
+                        className="w-full border-2 border-gray-200 p-3 rounded-xl"
                       />
                     </div>
                     <div className="flex-1">
@@ -628,7 +674,7 @@ function Dashboard() {
                             dissolvedOxygen: parseFloat(e.target.value),
                           })
                         }
-                        className="w-full border-2 border-gray-200 p-3 rounded-xl focus:outline-none focus:border-[#00B7B5] transition-colors"
+                        className="w-full border-2 border-gray-200 p-3 rounded-xl"
                       />
                     </div>
                   </div>
@@ -636,15 +682,16 @@ function Dashboard() {
                     <button
                       type="button"
                       onClick={closeModal}
-                      className="flex-1 bg-gray-100 text-gray-700 font-bold py-3 rounded-xl hover:bg-gray-200 transition-colors"
+                      className="flex-1 bg-gray-100 text-gray-700 font-bold py-3 rounded-xl"
                     >
                       Cancel
                     </button>
                     <button
                       type="submit"
-                      className="flex-1 bg-[#005461] hover:bg-[#018790] text-white font-bold py-3 rounded-xl transition-colors shadow-lg"
+                      className="flex-1 bg-gray-400 text-white font-bold py-3 rounded-xl cursor-not-allowed"
+                      disabled
                     >
-                      Save Reading
+                      Run AI Verification to Save
                     </button>
                   </div>
                 </form>
