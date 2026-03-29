@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   AreaChart,
   Area,
@@ -7,6 +7,8 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
+import html2canvas from "html2canvas";
+import { jsPDF } from "jspdf";
 
 function Dashboard() {
   const [readings, setReadings] = useState([]);
@@ -16,8 +18,12 @@ function Dashboard() {
 
   // AI States
   const [isAILoading, setIsAILoading] = useState(false);
-  const [forecastReport, setForecastReport] = useState(null); // Stores the AI result for the new UI
-  const [isDispatched, setIsDispatched] = useState(false); // Controls the Emergency Button state
+  const [forecastReport, setForecastReport] = useState(null);
+  const [isDispatched, setIsDispatched] = useState(false);
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false); // New state for PDF loading
+
+  // Ref to target the specific UI element we want to turn into a PDF
+  const reportRef = useRef(null);
 
   const [formData, setFormData] = useState({
     location: "",
@@ -61,8 +67,8 @@ function Dashboard() {
       temperature: reading.temperature,
       dissolvedOxygen: reading.dissolvedOxygen,
     });
-    setForecastReport(null); // Clear any old reports
-    setIsDispatched(false); // Reset the dispatch button
+    setForecastReport(null);
+    setIsDispatched(false);
     setIsModalOpen(true);
   };
 
@@ -100,8 +106,8 @@ function Dashboard() {
     }
 
     setIsAILoading(true);
-    setForecastReport(null); // Hide old report while loading
-    setIsDispatched(false); // Reset the dispatch button for the new forecast
+    setForecastReport(null);
+    setIsDispatched(false);
 
     fetch("http://localhost:5000/predict", {
       method: "POST",
@@ -120,7 +126,6 @@ function Dashboard() {
           alert("AI Error: " + aiData.error);
           return;
         }
-        // Instead of an alert, we save the data to show our beautiful UI!
         setForecastReport(aiData);
       })
       .catch((error) => {
@@ -133,8 +138,8 @@ function Dashboard() {
   const closeModal = () => {
     setIsModalOpen(false);
     setEditingId(null);
-    setForecastReport(null); // Reset the AI report UI
-    setIsDispatched(false); // Reset the dispatch button
+    setForecastReport(null);
+    setIsDispatched(false);
     setFormData({
       location: "",
       ph: "",
@@ -144,7 +149,32 @@ function Dashboard() {
     });
   };
 
-  // --- Helper logic to determine health risks based on AI Prediction ---
+  // --- NEW: PDF Generation Function ---
+  const handleDownloadPDF = async () => {
+    setIsGeneratingPDF(true);
+    const element = reportRef.current;
+
+    try {
+      // Take a picture of the targeted HTML div
+      const canvas = await html2canvas(element, { scale: 2 });
+      const imgData = canvas.toDataURL("image/png");
+
+      // Calculate PDF dimensions (A4 size)
+      const pdf = new jsPDF("p", "mm", "a4");
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+
+      // Paste the picture into the PDF and trigger download
+      pdf.addImage(imgData, "PNG", 0, 10, pdfWidth, pdfHeight);
+      pdf.save(`AI_Threat_Assessment_${formData.location || "Sector"}.pdf`);
+    } catch (error) {
+      console.error("PDF Generation failed:", error);
+      alert("Failed to generate PDF document.");
+    } finally {
+      setIsGeneratingPDF(false);
+    }
+  };
+
   const getHealthRisks = (ph, turbidity) => {
     const risks = [];
     if (ph < 6.5)
@@ -338,119 +368,152 @@ function Dashboard() {
             {/* If we have a forecast report, show the beautiful Intelligence Report UI */}
             {forecastReport ? (
               <div className="animate-fade-in">
-                <div className="flex justify-between items-start mb-6">
-                  <h2 className="text-2xl font-black text-gray-800 tracking-tight">
-                    AI Threat Assessment
-                  </h2>
-                  <span
-                    className={`px-4 py-1.5 rounded-full text-sm font-bold shadow-sm ${forecastReport.status.includes("CRITICAL") ? "bg-red-500 text-white" : "bg-green-500 text-white"}`}
-                  >
-                    {forecastReport.status}
-                  </span>
-                </div>
-
-                {/* AI Prediction Numbers */}
-                <div className="bg-gray-50 p-5 rounded-2xl border border-gray-100 mb-6 flex gap-6">
-                  <div>
-                    <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">
-                      Projected 12h pH
-                    </p>
-                    <p
-                      className={`text-3xl font-black ${forecastReport.future_ph < 6.5 || forecastReport.future_ph > 8.5 ? "text-red-500" : "text-[#005461]"}`}
+                {/* PDF CAPTURE WRAPPER - Everything inside here goes into the PDF */}
+                <div ref={reportRef} className="bg-white p-4 -m-4 mb-4">
+                  <div className="flex justify-between items-start mb-6">
+                    <h2 className="text-2xl font-black text-gray-800 tracking-tight">
+                      AI Threat Assessment
+                    </h2>
+                    <span
+                      className={`px-4 py-1.5 rounded-full text-sm font-bold shadow-sm ${forecastReport.status.includes("CRITICAL") ? "bg-red-500 text-white" : "bg-green-500 text-white"}`}
                     >
-                      {forecastReport.future_ph}
-                    </p>
+                      {forecastReport.status}
+                    </span>
                   </div>
-                  <div>
-                    <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">
-                      Projected 12h Turbidity
-                    </p>
-                    <p
-                      className={`text-3xl font-black ${forecastReport.future_turbidity > 5.0 ? "text-red-500" : "text-[#005461]"}`}
-                    >
-                      {forecastReport.future_turbidity}
-                    </p>
-                  </div>
-                </div>
 
-                {/* AI Message */}
-                <p className="text-gray-700 font-medium mb-6 leading-relaxed bg-blue-50/50 p-4 rounded-xl border border-blue-100">
-                  {forecastReport.message}
-                </p>
-
-                {/* Health & Public Safety Risks */}
-                <div className="mb-6">
-                  <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-3 flex items-center gap-2">
-                    <span className="text-red-500">⚕️</span> Public Health Risks
-                  </h3>
-                  <ul className="space-y-2">
-                    {getHealthRisks(
-                      forecastReport.future_ph,
-                      forecastReport.future_turbidity,
-                    ).map((risk, index) => (
-                      <li
-                        key={index}
-                        className="text-sm text-gray-600 flex items-start gap-2 bg-red-50/30 p-2.5 rounded-lg border border-red-50"
+                  <div className="bg-gray-50 p-5 rounded-2xl border border-gray-100 mb-6 flex gap-6">
+                    <div>
+                      <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">
+                        Projected 12h pH
+                      </p>
+                      <p
+                        className={`text-3xl font-black ${forecastReport.future_ph < 6.5 || forecastReport.future_ph > 8.5 ? "text-red-500" : "text-[#005461]"}`}
                       >
-                        <span className="text-red-400 mt-0.5">•</span> {risk}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
+                        {forecastReport.future_ph}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">
+                        Projected 12h Turbidity
+                      </p>
+                      <p
+                        className={`text-3xl font-black ${forecastReport.future_turbidity > 5.0 ? "text-red-500" : "text-[#005461]"}`}
+                      >
+                        {forecastReport.future_turbidity}
+                      </p>
+                    </div>
+                  </div>
 
-                {/* Action Plan & Dispatch */}
-                <div className="mb-8">
-                  <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-3 flex items-center gap-2">
-                    <span className="text-blue-500">📞</span> Recommended Action
-                    Protocol
-                  </h3>
-                  <div className="bg-gray-50 p-4 rounded-xl text-sm text-gray-600 border border-gray-200">
-                    <p className="font-bold mb-1">
-                      Target Authority:{" "}
-                      <span className="text-gray-900 font-medium">
-                        Municipal Water Quality Board (Sector 4)
-                      </span>
-                    </p>
-                    <p className="font-bold">
-                      Contact Protocol:{" "}
-                      <span className="text-gray-900 font-medium">
-                        +1 (800) 555-H2O
-                      </span>{" "}
-                      or{" "}
-                      <span className="text-blue-600 underline cursor-pointer">
-                        dispatch@aqua-authority.gov
-                      </span>
-                    </p>
+                  <p className="text-gray-700 font-medium mb-6 leading-relaxed bg-blue-50/50 p-4 rounded-xl border border-blue-100">
+                    {forecastReport.message}
+                  </p>
+
+                  <div className="mb-6">
+                    <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-3 flex items-center gap-2">
+                      <span className="text-red-500">⚕️</span> Public Health
+                      Risks
+                    </h3>
+                    <ul className="space-y-2">
+                      {getHealthRisks(
+                        forecastReport.future_ph,
+                        forecastReport.future_turbidity,
+                      ).map((risk, index) => (
+                        <li
+                          key={index}
+                          className="text-sm text-gray-600 flex items-start gap-2 bg-red-50/30 p-2.5 rounded-lg border border-red-50"
+                        >
+                          <span className="text-red-400 mt-0.5">•</span> {risk}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  <div className="mb-4">
+                    <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-3 flex items-center gap-2">
+                      <span className="text-blue-500">📞</span> Recommended
+                      Action Protocol
+                    </h3>
+                    <div className="bg-gray-50 p-4 rounded-xl text-sm text-gray-600 border border-gray-200">
+                      <p className="font-bold mb-1">
+                        Target Authority:{" "}
+                        <span className="text-gray-900 font-medium">
+                          Municipal Water Quality Board (
+                          {formData.location || "Sector 4"})
+                        </span>
+                      </p>
+                      <p className="font-bold">
+                        Contact Protocol:{" "}
+                        <span className="text-gray-900 font-medium">
+                          +1 (800) 555-H2O
+                        </span>{" "}
+                        or{" "}
+                        <span className="text-blue-600 underline cursor-pointer">
+                          dispatch@aqua-authority.gov
+                        </span>
+                      </p>
+                    </div>
                   </div>
                 </div>
+                {/* END PDF CAPTURE WRAPPER */}
 
-                {/* Buttons */}
-                <div className="flex gap-3">
-                  <button
-                    onClick={() => setForecastReport(null)}
-                    className="flex-1 bg-gray-100 text-gray-700 font-bold py-3.5 rounded-xl hover:bg-gray-200 transition-colors"
-                  >
-                    Back to Form
-                  </button>
-                  {forecastReport.status.includes("CRITICAL") && (
+                {/* Buttons (These are OUTSIDE the PDF wrapper so they don't print on the document) */}
+                <div className="flex flex-col gap-3">
+                  <div className="flex gap-3">
                     <button
-                      onClick={() => setIsDispatched(true)}
-                      disabled={isDispatched}
-                      className={`flex-1 font-bold py-3.5 rounded-xl shadow-lg transition-all ${
-                        isDispatched
-                          ? "bg-green-500 text-white cursor-not-allowed"
-                          : "bg-red-600 hover:bg-red-700 text-white shadow-red-500/30 hover:-translate-y-0.5"
-                      }`}
+                      onClick={() => setForecastReport(null)}
+                      className="flex-1 bg-gray-100 text-gray-700 font-bold py-3.5 rounded-xl hover:bg-gray-200 transition-colors"
                     >
-                      {isDispatched
-                        ? "✅ Protocol Dispatched"
-                        : "Dispatch Emergency Protocol"}
+                      Back to Form
                     </button>
-                  )}
+                    {forecastReport.status.includes("CRITICAL") && (
+                      <button
+                        onClick={() => {
+                          setIsDispatched(true);
+                          fetch("http://localhost:5000/dispatch", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                              location: formData.location || "Sector 4",
+                              ph: forecastReport.future_ph,
+                              turbidity: forecastReport.future_turbidity,
+                            }),
+                          })
+                            .then((res) => res.json())
+                            .then((data) => {
+                              if (data.error) {
+                                alert("SMS Failed: " + data.error);
+                                setIsDispatched(false);
+                              }
+                            })
+                            .catch((err) => {
+                              console.error(err);
+                              alert("Failed to send SMS.");
+                              setIsDispatched(false);
+                            });
+                        }}
+                        disabled={isDispatched}
+                        className={`flex-1 font-bold py-3.5 rounded-xl shadow-lg transition-all ${isDispatched ? "bg-green-500 text-white cursor-not-allowed" : "bg-red-600 hover:bg-red-700 text-white shadow-red-500/30 hover:-translate-y-0.5"}`}
+                      >
+                        {isDispatched
+                          ? "✅ Protocol Dispatched"
+                          : "Dispatch Emergency Protocol"}
+                      </button>
+                    )}
+                  </div>
+                  {/* NEW PDF DOWNLOAD BUTTON */}
+                  <button
+                    onClick={handleDownloadPDF}
+                    disabled={isGeneratingPDF}
+                    className="w-full bg-[#005461] hover:bg-[#018790] text-white font-bold py-3.5 rounded-xl transition-all shadow-md flex justify-center items-center gap-2"
+                  >
+                    {isGeneratingPDF
+                      ? "Generating Document..."
+                      : "📄 Download Official PDF Report"}
+                  </button>
                 </div>
               </div>
             ) : (
-              /* If there is no report, show the standard input form */
+              /* Standard input form */
               <div>
                 <h2 className="text-2xl font-bold text-[#005461] mb-6">
                   {editingId ? "Update Reading" : "New Sensor Data"}
