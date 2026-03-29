@@ -13,7 +13,11 @@ function Dashboard() {
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
+
+  // AI States
   const [isAILoading, setIsAILoading] = useState(false);
+  const [forecastReport, setForecastReport] = useState(null); // Stores the AI result for the new UI
+  const [isDispatched, setIsDispatched] = useState(false); // Controls the Emergency Button state
 
   const [formData, setFormData] = useState({
     location: "",
@@ -57,6 +61,8 @@ function Dashboard() {
       temperature: reading.temperature,
       dissolvedOxygen: reading.dissolvedOxygen,
     });
+    setForecastReport(null); // Clear any old reports
+    setIsDispatched(false); // Reset the dispatch button
     setIsModalOpen(true);
   };
 
@@ -79,11 +85,8 @@ function Dashboard() {
       .catch((error) => console.error("Error saving data:", error));
   };
 
-  // NEW: Predictive Forecasting Function hitting Port 5000 directly
   const handleAIForecast = (e) => {
     e.preventDefault();
-
-    // Check if the user actually typed numbers in first
     if (
       !formData.ph ||
       !formData.turbidity ||
@@ -97,8 +100,9 @@ function Dashboard() {
     }
 
     setIsAILoading(true);
+    setForecastReport(null); // Hide old report while loading
+    setIsDispatched(false); // Reset the dispatch button for the new forecast
 
-    // Hit the Python microservice directly!
     fetch("http://localhost:5000/predict", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -116,9 +120,8 @@ function Dashboard() {
           alert("AI Error: " + aiData.error);
           return;
         }
-        alert(
-          `🔮 AI Future Forecast Complete!\n\nStatus: ${aiData.status}\n\n${aiData.message}`,
-        );
+        // Instead of an alert, we save the data to show our beautiful UI!
+        setForecastReport(aiData);
       })
       .catch((error) => {
         console.error("AI Error:", error);
@@ -130,6 +133,8 @@ function Dashboard() {
   const closeModal = () => {
     setIsModalOpen(false);
     setEditingId(null);
+    setForecastReport(null); // Reset the AI report UI
+    setIsDispatched(false); // Reset the dispatch button
     setFormData({
       location: "",
       ph: "",
@@ -137,6 +142,26 @@ function Dashboard() {
       temperature: "",
       dissolvedOxygen: "",
     });
+  };
+
+  // --- Helper logic to determine health risks based on AI Prediction ---
+  const getHealthRisks = (ph, turbidity) => {
+    const risks = [];
+    if (ph < 6.5)
+      risks.push(
+        "Corrosion of lead/copper pipes causing heavy metal poisoning.",
+      );
+    if (ph > 8.5)
+      risks.push(
+        "Skin irritation, gastrointestinal issues, and decreased chlorine effectiveness.",
+      );
+    if (turbidity > 5.0)
+      risks.push(
+        "High risk of waterborne pathogens (E. Coli, Cholera, Giardia).",
+      );
+    if (risks.length === 0)
+      risks.push("No immediate biological or chemical threats detected.");
+    return risks;
   };
 
   const totalReadings = readings.length;
@@ -152,7 +177,7 @@ function Dashboard() {
 
   return (
     <div className="min-h-screen bg-[#F4F4F4] font-sans pb-12">
-      {/* 1. THE HERO SECTION (Gradient from Deep Teal to Mid Teal) */}
+      {/* 1. HERO SECTION */}
       <div className="bg-gradient-to-r from-[#005461] to-[#018790] pt-12 pb-28 px-8 text-center relative z-10">
         <h1 className="text-3xl md:text-5xl font-bold text-white mb-4 tracking-tight">
           Water Quality Intelligence
@@ -165,7 +190,7 @@ function Dashboard() {
             setEditingId(null);
             setIsModalOpen(true);
           }}
-          className="bg-[#00B7B5] hover:bg-[#009b99] text-white font-bold py-3 px-8 rounded-full shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all duration-200"
+          className="bg-[#00B7B5] hover:bg-[#009b99] text-white font-bold py-3 px-8 rounded-full shadow-lg hover:shadow-xl transition-all duration-200"
         >
           + Add New Reading
         </button>
@@ -286,11 +311,7 @@ function Dashboard() {
                   </td>
                   <td className="px-6 py-4">
                     <span
-                      className={`px-3 py-1 rounded-full text-xs font-bold ${
-                        reading.status === "ANOMALY"
-                          ? "bg-red-50 text-red-600 border border-red-200"
-                          : "bg-[#00B7B5]/10 text-[#018790] border border-[#00B7B5]/20"
-                      }`}
+                      className={`px-3 py-1 rounded-full text-xs font-bold ${reading.status === "ANOMALY" ? "bg-red-50 text-red-600 border border-red-200" : "bg-[#00B7B5]/10 text-[#018790] border border-[#00B7B5]/20"}`}
                     >
                       {reading.status}
                     </span>
@@ -312,140 +333,260 @@ function Dashboard() {
 
       {/* 3. THE MODAL */}
       {isModalOpen && (
-        <div className="fixed inset-0 bg-[#005461]/60 backdrop-blur-sm flex justify-center items-center z-50 p-4">
-          <div className="bg-white p-8 rounded-3xl shadow-2xl w-[550px] max-w-full">
-            <h2 className="text-2xl font-bold text-[#005461] mb-6">
-              {editingId ? "Update Reading" : "New Sensor Data"}
-            </h2>
+        <div className="fixed inset-0 bg-[#005461]/80 backdrop-blur-md flex justify-center items-center z-50 p-4">
+          <div className="bg-white p-8 rounded-3xl shadow-2xl w-[600px] max-w-full max-h-[90vh] overflow-y-auto">
+            {/* If we have a forecast report, show the beautiful Intelligence Report UI */}
+            {forecastReport ? (
+              <div className="animate-fade-in">
+                <div className="flex justify-between items-start mb-6">
+                  <h2 className="text-2xl font-black text-gray-800 tracking-tight">
+                    AI Threat Assessment
+                  </h2>
+                  <span
+                    className={`px-4 py-1.5 rounded-full text-sm font-bold shadow-sm ${forecastReport.status.includes("CRITICAL") ? "bg-red-500 text-white" : "bg-green-500 text-white"}`}
+                  >
+                    {forecastReport.status}
+                  </span>
+                </div>
 
-            {/* AI PREDICTIVE FORECAST BOX */}
-            {!editingId && (
-              <div className="mb-8 p-6 border-2 border-dashed border-[#00B7B5]/50 bg-[#00B7B5]/5 rounded-2xl text-center transition-all hover:bg-[#00B7B5]/10">
-                <p className="text-[#018790] font-bold mb-3 flex items-center justify-center gap-2">
-                  <span className="text-xl">🔮</span> AI Predictive Engine
+                {/* AI Prediction Numbers */}
+                <div className="bg-gray-50 p-5 rounded-2xl border border-gray-100 mb-6 flex gap-6">
+                  <div>
+                    <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">
+                      Projected 12h pH
+                    </p>
+                    <p
+                      className={`text-3xl font-black ${forecastReport.future_ph < 6.5 || forecastReport.future_ph > 8.5 ? "text-red-500" : "text-[#005461]"}`}
+                    >
+                      {forecastReport.future_ph}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">
+                      Projected 12h Turbidity
+                    </p>
+                    <p
+                      className={`text-3xl font-black ${forecastReport.future_turbidity > 5.0 ? "text-red-500" : "text-[#005461]"}`}
+                    >
+                      {forecastReport.future_turbidity}
+                    </p>
+                  </div>
+                </div>
+
+                {/* AI Message */}
+                <p className="text-gray-700 font-medium mb-6 leading-relaxed bg-blue-50/50 p-4 rounded-xl border border-blue-100">
+                  {forecastReport.message}
                 </p>
-                <p className="text-sm text-gray-500 mb-4">
-                  Type the current sensor telemetry below, then run the AI to
-                  forecast ecosystem stability 12 hours into the future.
-                </p>
-                <button
-                  type="button"
-                  onClick={handleAIForecast}
-                  disabled={isAILoading}
-                  className="bg-[#00B7B5] hover:bg-[#018790] text-white text-sm font-bold py-2.5 px-6 rounded-full shadow-md transition duration-200 inline-block"
-                >
-                  {isAILoading ? "Calculating Future..." : "Run AI Forecast"}
-                </button>
+
+                {/* Health & Public Safety Risks */}
+                <div className="mb-6">
+                  <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-3 flex items-center gap-2">
+                    <span className="text-red-500">⚕️</span> Public Health Risks
+                  </h3>
+                  <ul className="space-y-2">
+                    {getHealthRisks(
+                      forecastReport.future_ph,
+                      forecastReport.future_turbidity,
+                    ).map((risk, index) => (
+                      <li
+                        key={index}
+                        className="text-sm text-gray-600 flex items-start gap-2 bg-red-50/30 p-2.5 rounded-lg border border-red-50"
+                      >
+                        <span className="text-red-400 mt-0.5">•</span> {risk}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                {/* Action Plan & Dispatch */}
+                <div className="mb-8">
+                  <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-3 flex items-center gap-2">
+                    <span className="text-blue-500">📞</span> Recommended Action
+                    Protocol
+                  </h3>
+                  <div className="bg-gray-50 p-4 rounded-xl text-sm text-gray-600 border border-gray-200">
+                    <p className="font-bold mb-1">
+                      Target Authority:{" "}
+                      <span className="text-gray-900 font-medium">
+                        Municipal Water Quality Board (Sector 4)
+                      </span>
+                    </p>
+                    <p className="font-bold">
+                      Contact Protocol:{" "}
+                      <span className="text-gray-900 font-medium">
+                        +1 (800) 555-H2O
+                      </span>{" "}
+                      or{" "}
+                      <span className="text-blue-600 underline cursor-pointer">
+                        dispatch@aqua-authority.gov
+                      </span>
+                    </p>
+                  </div>
+                </div>
+
+                {/* Buttons */}
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setForecastReport(null)}
+                    className="flex-1 bg-gray-100 text-gray-700 font-bold py-3.5 rounded-xl hover:bg-gray-200 transition-colors"
+                  >
+                    Back to Form
+                  </button>
+                  {forecastReport.status.includes("CRITICAL") && (
+                    <button
+                      onClick={() => setIsDispatched(true)}
+                      disabled={isDispatched}
+                      className={`flex-1 font-bold py-3.5 rounded-xl shadow-lg transition-all ${
+                        isDispatched
+                          ? "bg-green-500 text-white cursor-not-allowed"
+                          : "bg-red-600 hover:bg-red-700 text-white shadow-red-500/30 hover:-translate-y-0.5"
+                      }`}
+                    >
+                      {isDispatched
+                        ? "✅ Protocol Dispatched"
+                        : "Dispatch Emergency Protocol"}
+                    </button>
+                  )}
+                </div>
+              </div>
+            ) : (
+              /* If there is no report, show the standard input form */
+              <div>
+                <h2 className="text-2xl font-bold text-[#005461] mb-6">
+                  {editingId ? "Update Reading" : "New Sensor Data"}
+                </h2>
+
+                {!editingId && (
+                  <div className="mb-8 p-6 border-2 border-dashed border-[#00B7B5]/50 bg-[#00B7B5]/5 rounded-2xl text-center transition-all hover:bg-[#00B7B5]/10">
+                    <p className="text-[#018790] font-bold mb-3 flex items-center justify-center gap-2">
+                      <span className="text-xl">🔮</span> AI Predictive Engine
+                    </p>
+                    <p className="text-sm text-gray-500 mb-4">
+                      Type the current sensor telemetry below, then run the AI
+                      to forecast ecosystem stability 12 hours into the future.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={handleAIForecast}
+                      disabled={isAILoading}
+                      className="bg-[#00B7B5] hover:bg-[#018790] text-white text-sm font-bold py-2.5 px-6 rounded-full shadow-md transition duration-200 inline-block"
+                    >
+                      {isAILoading
+                        ? "Calculating Future..."
+                        : "Run AI Forecast"}
+                    </button>
+                  </div>
+                )}
+
+                <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+                  <div>
+                    <label className="block text-sm font-bold text-[#018790] mb-1.5">
+                      Location Name
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={formData.location}
+                      onChange={(e) =>
+                        setFormData({ ...formData, location: e.target.value })
+                      }
+                      className="w-full border-2 border-gray-200 p-3 rounded-xl focus:outline-none focus:border-[#00B7B5] transition-colors"
+                    />
+                  </div>
+                  <div className="flex gap-4">
+                    <div className="flex-1">
+                      <label className="block text-sm font-bold text-[#018790] mb-1.5">
+                        pH Level
+                      </label>
+                      <input
+                        type="number"
+                        step="0.1"
+                        required
+                        value={formData.ph}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            ph: parseFloat(e.target.value),
+                          })
+                        }
+                        className="w-full border-2 border-gray-200 p-3 rounded-xl focus:outline-none focus:border-[#00B7B5] transition-colors"
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <label className="block text-sm font-bold text-[#018790] mb-1.5">
+                        Turbidity
+                      </label>
+                      <input
+                        type="number"
+                        step="0.1"
+                        required
+                        value={formData.turbidity}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            turbidity: parseFloat(e.target.value),
+                          })
+                        }
+                        className="w-full border-2 border-gray-200 p-3 rounded-xl focus:outline-none focus:border-[#00B7B5] transition-colors"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex gap-4">
+                    <div className="flex-1">
+                      <label className="block text-sm font-bold text-[#018790] mb-1.5">
+                        Temp (°C)
+                      </label>
+                      <input
+                        type="number"
+                        step="0.1"
+                        required
+                        value={formData.temperature}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            temperature: parseFloat(e.target.value),
+                          })
+                        }
+                        className="w-full border-2 border-gray-200 p-3 rounded-xl focus:outline-none focus:border-[#00B7B5] transition-colors"
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <label className="block text-sm font-bold text-[#018790] mb-1.5">
+                        Dissolved O₂
+                      </label>
+                      <input
+                        type="number"
+                        step="0.1"
+                        required
+                        value={formData.dissolvedOxygen}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            dissolvedOxygen: parseFloat(e.target.value),
+                          })
+                        }
+                        className="w-full border-2 border-gray-200 p-3 rounded-xl focus:outline-none focus:border-[#00B7B5] transition-colors"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex gap-3 mt-6">
+                    <button
+                      type="button"
+                      onClick={closeModal}
+                      className="flex-1 bg-gray-100 text-gray-700 font-bold py-3 rounded-xl hover:bg-gray-200 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      className="flex-1 bg-[#005461] hover:bg-[#018790] text-white font-bold py-3 rounded-xl transition-colors shadow-lg"
+                    >
+                      Save Reading
+                    </button>
+                  </div>
+                </form>
               </div>
             )}
-
-            <form onSubmit={handleSubmit} className="flex flex-col gap-5">
-              <div>
-                <label className="block text-sm font-bold text-[#018790] mb-1.5">
-                  Location Name
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={formData.location}
-                  onChange={(e) =>
-                    setFormData({ ...formData, location: e.target.value })
-                  }
-                  className="w-full border-2 border-gray-200 p-3 rounded-xl focus:outline-none focus:border-[#00B7B5] transition-colors"
-                />
-              </div>
-              <div className="flex gap-4">
-                <div className="flex-1">
-                  <label className="block text-sm font-bold text-[#018790] mb-1.5">
-                    pH Level
-                  </label>
-                  <input
-                    type="number"
-                    step="0.1"
-                    required
-                    value={formData.ph}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        ph: parseFloat(e.target.value),
-                      })
-                    }
-                    className="w-full border-2 border-gray-200 p-3 rounded-xl focus:outline-none focus:border-[#00B7B5] transition-colors"
-                  />
-                </div>
-                <div className="flex-1">
-                  <label className="block text-sm font-bold text-[#018790] mb-1.5">
-                    Turbidity
-                  </label>
-                  <input
-                    type="number"
-                    step="0.1"
-                    required
-                    value={formData.turbidity}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        turbidity: parseFloat(e.target.value),
-                      })
-                    }
-                    className="w-full border-2 border-gray-200 p-3 rounded-xl focus:outline-none focus:border-[#00B7B5] transition-colors"
-                  />
-                </div>
-              </div>
-              <div className="flex gap-4">
-                <div className="flex-1">
-                  <label className="block text-sm font-bold text-[#018790] mb-1.5">
-                    Temp (°C)
-                  </label>
-                  <input
-                    type="number"
-                    step="0.1"
-                    required
-                    value={formData.temperature}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        temperature: parseFloat(e.target.value),
-                      })
-                    }
-                    className="w-full border-2 border-gray-200 p-3 rounded-xl focus:outline-none focus:border-[#00B7B5] transition-colors"
-                  />
-                </div>
-                <div className="flex-1">
-                  <label className="block text-sm font-bold text-[#018790] mb-1.5">
-                    Dissolved O₂
-                  </label>
-                  <input
-                    type="number"
-                    step="0.1"
-                    required
-                    value={formData.dissolvedOxygen}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        dissolvedOxygen: parseFloat(e.target.value),
-                      })
-                    }
-                    className="w-full border-2 border-gray-200 p-3 rounded-xl focus:outline-none focus:border-[#00B7B5] transition-colors"
-                  />
-                </div>
-              </div>
-              <div className="flex gap-3 mt-6">
-                <button
-                  type="button"
-                  onClick={closeModal}
-                  className="flex-1 bg-gray-100 text-gray-700 font-bold py-3 rounded-xl hover:bg-gray-200 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 bg-[#005461] hover:bg-[#018790] text-white font-bold py-3 rounded-xl transition-colors shadow-lg"
-                >
-                  {editingId ? "Update Data" : "Save Reading"}
-                </button>
-              </div>
-            </form>
           </div>
         </div>
       )}
