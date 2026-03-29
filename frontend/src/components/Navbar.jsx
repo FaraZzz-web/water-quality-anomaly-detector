@@ -15,7 +15,12 @@ function Navbar() {
         to="/"
         className="text-xl font-extrabold tracking-wide flex items-center gap-2"
       >
-        <span className="text-[#00B7B5] text-2xl">≈</span> AquaAI
+        <img
+          src="/logo.png"
+          alt="AquaAI Logo"
+          className="h-8 w-auto mr-1 object-contain drop-shadow-md"
+        />{" "}
+        Luqora
       </Link>
 
       <div className="hidden md:flex gap-8 text-sm font-bold text-white/70 items-center">
