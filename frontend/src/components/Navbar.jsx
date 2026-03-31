@@ -57,6 +57,18 @@ function Navbar() {
           Anomaly Alerts
         </Link>
 
+        {/* ---> ADDED: Public Portal Link <--- */}
+        <Link
+          to="/portal"
+          className={
+            isActive("/portal")
+              ? "text-white border-b-2 border-[#00B7B5] pb-1"
+              : "text-[#00B7B5] hover:text-white transition" // Gave it a slight cyan tint when inactive so it stands out!
+          }
+        >
+          Public Portal
+        </Link>
+
         {/* Login/Logout Button styled with your cyan accent */}
         <Link
           to="/login"

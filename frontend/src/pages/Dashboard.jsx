@@ -34,6 +34,26 @@ function Dashboard() {
     dissolvedOxygen: "",
   });
 
+  // --- NEW: Terminal State & Typewriter Logic ---
+  const [showTerminal, setShowTerminal] = useState(true);
+  const [terminalText, setTerminalText] = useState("");
+  const fullText =
+    "> INITIALIZING AQUA-AI VER 2.0...\n> ESTABLISHING CONNECTION TO SECURE POSTGRESQL VAULT... SUCCESS.\n> LOADING RANDOM FOREST PREDICTIVE MODEL... SUCCESS.\n> SYSTEM ONLINE.\n> Welcome to the autonomous water quality monitoring grid.";
+
+  useEffect(() => {
+    if (!showTerminal) return;
+    let i = 0;
+    const typingInterval = setInterval(() => {
+      setTerminalText(fullText.slice(0, i));
+      i++;
+      if (i > fullText.length) {
+        clearInterval(typingInterval);
+      }
+    }, 30); // Speed of the typewriter
+    return () => clearInterval(typingInterval);
+  }, [showTerminal]);
+  // ----------------------------------------------
+
   const fetchReadings = () => {
     fetch("http://localhost:8080/api/readings")
       .then((response) => response.json())
@@ -295,7 +315,7 @@ function Dashboard() {
 
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 -mt-20 relative z-20">
         {/* 2. KPI CARDS */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
           <div className="bg-white rounded-2xl shadow-xl shadow-gray-200/50 p-6 flex flex-col justify-center items-center text-center">
             <p className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-1">
               Readings (
@@ -323,7 +343,7 @@ function Dashboard() {
           </div>
         </div>
 
-        {/* --- NEW: SYSTEM BLUEPRINT DIAGRAM (Replaces Image) --- */}
+        {/* --- SYSTEM BLUEPRINT DIAGRAM --- */}
         <div className="bg-slate-900 rounded-2xl shadow-xl shadow-gray-300/50 overflow-hidden mb-8 border-4 border-slate-800 p-6 sm:p-10 relative flex flex-col items-center justify-center min-h-[220px]">
           <style>{`
             @keyframes flowRight {
@@ -464,7 +484,7 @@ function Dashboard() {
 
         {/* 4. TAB CONTENT RENDERER */}
 
-        {/* --- TAB A: TELEMETRY --- */}
+        {/* --- TAB A: TELEMETRY (Your existing Dashboard) --- */}
         {activeTab === "telemetry" && (
           <div className="animate-fade-in" ref={reportRef}>
             <div className="bg-white rounded-2xl shadow-xl shadow-gray-200/50 p-8 mb-8">
@@ -744,7 +764,7 @@ function Dashboard() {
             <div className="mb-6 flex justify-between items-end">
               <div>
                 <h2 className="text-2xl font-black text-[#005461] mb-1">
-                  ⚙️ IoT Hardware Diagnostics
+                  IoT Hardware Diagnostics
                 </h2>
                 <p className="text-gray-500 text-sm">
                   Physical sensor maintenance, battery life, and calibration
@@ -976,7 +996,7 @@ function Dashboard() {
                         className={`flex-1 font-bold py-3.5 rounded-xl shadow-lg transition-all ${isDispatched ? "bg-green-500 text-white" : "bg-red-600 hover:bg-red-700 text-white"}`}
                       >
                         {isDispatched
-                          ? "✅ Manual Protocol Dispatched"
+                          ? "Manual Protocol Dispatched"
                           : "Dispatch Emergency Protocol"}
                       </button>
                     )}
