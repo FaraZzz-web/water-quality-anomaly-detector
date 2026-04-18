@@ -1,13 +1,22 @@
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 
 function Navbar() {
   const location = useLocation();
+  const navigate = useNavigate(); // <-- Ise sahi jagah rakh diya
 
   // Hide the navbar if the user is on the login page
   if (location.pathname === "/login") return null;
 
   // Helper function to highlight the active menu item
   const isActive = (path) => location.pathname === path;
+
+  const handleLogout = () => {
+    // 1. Jeb (Local Storage) se VIP Pass nikal kar phek do
+    localStorage.removeItem("token");
+
+    // 2. User ko wapas Login page par bhej do
+    navigate("/login");
+  };
 
   return (
     <nav className="bg-[#005461] text-white py-4 px-8 flex justify-between items-center shadow-md relative z-20">
@@ -63,19 +72,20 @@ function Navbar() {
           className={
             isActive("/portal")
               ? "text-white border-b-2 border-[#00B7B5] pb-1"
-              : "text-[#00B7B5] hover:text-white transition" // Gave it a slight cyan tint when inactive so it stands out!
+              : "text-[#00B7B5] hover:text-white transition"
           }
         >
           Public Portal
         </Link>
 
-        {/* Login/Logout Button styled with your cyan accent */}
-        <Link
-          to="/login"
-          className="ml-4 bg-[#00B7B5]/20 hover:bg-[#00B7B5]/40 text-[#00B7B5] px-5 py-2 rounded-full transition"
+        {/* ---> YAHAN CHANGE KIYA HAI <--- */}
+        {/* Isko <Link> se hata kar <button> bana diya aur onClick laga diya */}
+        <button
+          onClick={handleLogout}
+          className="ml-4 bg-[#00B7B5]/20 hover:bg-[#00B7B5]/40 text-[#00B7B5] px-5 py-2 rounded-full transition cursor-pointer"
         >
           Logout
-        </Link>
+        </button>
       </div>
     </nav>
   );
