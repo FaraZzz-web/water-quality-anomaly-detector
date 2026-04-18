@@ -1,49 +1,48 @@
 # 🌊 Luqora - Smart Water Monitoring System
 
-Welcome to **Luqora**, a comprehensive full-stack application designed to monitor water quality, detect anomalies, and spread awareness through a secure Admin Command Center and a public Citizen Portal.
+Welcome to **Luqora**, a next-gen full-stack solution designed for real-time water quality monitoring and anomaly detection. 
 
 ## 🚀 Project Overview
-Luqora bridges the gap between environmental monitoring and public awareness. It provides administrators with a secure dashboard to upload data and track water quality anomalies, while offering everyday citizens a portal to view the safety of their local water sources.
+Luqora is built to handle environmental data with precision. It features a high-performance **Admin Command Center** for data management and a **Public Citizen Portal** for transparency, ensuring that water quality information is both secure and accessible.
 
-## 💻 Tech Stack
-This project is built using a modern, scalable full-stack architecture:
+## 💻 Tech Stack & Frontend Excellence
 
-**Frontend:**
-* React.js (Vite)
-* Tailwind CSS (For premium, responsive UI)
-* React Router v6 (For secure routing & navigation)
+### **Frontend Architecture**
+* **React.js (Vite):** Blazing fast development and optimized build tool.
+* **Tailwind CSS:** Premium styling with a focus on dark-teal aesthetics and glassmorphism.
+* **React Router v6:** Implemented **Private Routes** (Bouncer) to secure the admin dashboard.
+* **State Management:** Managed via React Hooks (`useState`, `useEffect`) for seamless data flow.
+* **Asynchronous Operations:** Used `Fetch API` with `Async/Await` for clean, non-blocking backend communication.
 
-**Backend:**
-* Java Spring Boot
-* Spring Security (For robust API protection)
-* JSON Web Tokens (JWT) (For stateless, secure authentication)
+### **Backend & Security**
+* **Java Spring Boot:** Robust enterprise-level backend logic.
+* **Spring Security & JWT:** Stateless authentication ensuring zero unauthorized access.
+* **PostgreSQL:** Relational database for structured data storage.
 
-**Database:**
-* PostgreSQL
+---
 
 ## ✨ Key Features
-* **🔒 Secure Admin Command Center:** Industry-standard JWT authentication for admin login.
-* **🛡️ Protected Routes:** Frontend "Bouncer" implementation preventing unauthorized access to the dashboard.
-* **📊 Dashboard & Anomaly Tracking:** Interface for admins to monitor water quality data.
-* **📁 CSV Uploads:** Seamless data ingestion for water readings.
-* **🌐 Public Citizen Portal:** An open-access page for the general public to view water safety status without requiring login.
-* **🚪 Secure Logout:** Complete token lifecycle management.
 
-## 🛠️ How to Run the Project Locally
+### 🛡️ Admin Security (The Powerhouse)
+* **JWT Implementation:** Secure tokens issued on login, stored in `localStorage`.
+* **Route Protection:** Custom `ProtectedRoute` component ensures that the `/dashboard`, `/upload`, and `/anomalies` pages are invisible to unauthorized users.
+* **Session Management:** Integrated Logout functionality that clears tokens and redirects users instantly.
 
-### 1. Database Setup
-* Ensure PostgreSQL is running on your machine.
-* Create a database named `waterquality`.
-* The Spring Boot application will automatically generate the required tables (`users`, etc.) on the first run.
-* *Note: Insert an admin user manually into the database to access the dashboard.*
+### 📊 Frontend Dashboard
+* **Dynamic UI:** Responsive design that adapts to all screen sizes.
+* **Anomaly Alerts:** Real-time visual indicators for water quality deviations.
+* **Modern Aesthetics:** Use of animated blobs, custom gradients, and SVG iconography for a premium feel.
 
-### 2. Backend Setup (Spring Boot)
-1. Navigate to the backend directory.
-2. Ensure your `application.properties` has the correct PostgreSQL credentials.
-3. Run the Spring Boot application (Server starts on Port 8080).
+### 🌐 Citizen Transparency
+* **Public Access:** A dedicated portal for citizens to view safety reports without needing an account.
 
-### 3. Frontend Setup (React)
-1. Open a new terminal and navigate to the frontend folder.
-2. Install dependencies:
-   ```bash
-   npm install
+---
+
+## 📂 Project Structure (Frontend)
+```text
+src/
+ ├── components/       # Reusable UI (Navbar, ProtectedRoute)
+ ├── pages/            # Core Pages (Dashboard, Login, Upload, Portal)
+ ├── assets/           # Project branding and logos
+ ├── App.jsx           # Main Routing Hub & Security Logic
+ └── main.jsx          # Entry point
