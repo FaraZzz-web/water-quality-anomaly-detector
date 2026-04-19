@@ -1,4 +1,5 @@
 import { useState } from "react";
+import axios from "axios";
 
 function Upload() {
   const [file, setFile] = useState(null);
@@ -20,31 +21,37 @@ function Upload() {
     const formData = new FormData();
     formData.append("file", file);
 
+    // Apna JWT Token localStorage se nikalo (Make sure naam match kare jo tune login ke time save kiya tha, jaise 'token' ya 'jwt')
+    const token = localStorage.getItem("token");
+
     try {
-      const response = await fetch(
+      // Axios ke zariye request bhejo, Content-Type auto set ho jayega boundary ke sath
+      const response = await axios.post(
         "http://localhost:8080/api/readings/upload",
+        formData,
         {
-          method: "POST",
-          body: formData,
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
         },
       );
 
-      if (response.ok) {
+      // Agar response successful (2xx status code) hai toh:
+      if (response.status === 200 || response.status === 201) {
         setUploadStatus("success");
       } else {
         setUploadStatus("error");
       }
     } catch (error) {
-      console.error("Upload error:", error);
+      console.error("Upload error details:", error.response || error);
       setUploadStatus("error");
     } finally {
       setIsUploading(false);
-      setFile(null); // Clear the file input
+      setFile(null); // Clear the file input field
     }
   };
 
   return (
-    // Added pt-12 to push it down from the new Top Navbar
     <div className="max-w-4xl mx-auto pt-16 px-6 sm:px-8">
       {/* Header Area */}
       <div className="mb-10 text-center">
@@ -63,7 +70,7 @@ function Upload() {
         <div className="border-2 border-dashed border-[#00B7B5]/50 bg-[#00B7B5]/5 rounded-2xl p-12 mb-8 transition-all hover:bg-[#00B7B5]/10 flex flex-col items-center justify-center">
           <div className="bg-white p-4 rounded-full shadow-md mb-4 text-[#018790]">
             <svg
-              xmlns="http://www.w3.org/polygons"
+              xmlns="http://www.w3.org/2000/svg"
               className="w-10 h-10"
               fill="none"
               viewBox="0 0 24 24"
@@ -113,8 +120,8 @@ function Upload() {
         )}
         {uploadStatus === "error" && (
           <div className="mt-6 p-4 bg-red-50 text-red-700 border border-red-200 rounded-xl font-bold flex items-center justify-center gap-2">
-            <span>⚠️</span> Error uploading file. Please check your CSV format
-            and try again.
+            <span>⚠️</span> Error uploading file. Please check console for
+            details.
           </div>
         )}
       </div>
