@@ -38,7 +38,7 @@ Luqora is built to handle environmental data with precision. It features a high-
 
 ---
 
-## 📂 Project Structure (Frontend)
+## 📂 Project Structure (Frontend & Backend)
 ```text
 src/
  ├── components/       # Reusable UI (Navbar, ProtectedRoute)
@@ -46,3 +46,21 @@ src/
  ├── assets/           # Project branding and logos
  ├── App.jsx           # Main Routing Hub & Security Logic
  └── main.jsx          # Entry point
+
+waterquality/                     # Spring Boot Backend Root
+│
+├── src/main/java/.../waterquality/
+│   ├── controller/              # REST API Endpoints (AuthController, WaterReadingController)
+│   ├── models/                  # Database Entities (User, WaterReading, AnomalyAlert)
+│   ├── service/                 # Core Business Logic (DataAnalyzer)
+│   ├── util/                    # Helper Classes (JwtUtil, CsvReader)
+│   ├── SecurityConfig.java      # Spring Security & JWT Configuration
+│   ├── UserRepository.java      # JPA Data Access
+│   ├── WaterReadingRepository.java
+│   └── WaterqualityApplication.java  # Main Spring Boot Application Class
+│
+├── src/main/resources/
+│   └── application.properties   # Database credentials and JWT secrets
+│
+└── pom.xml                      # Maven Dependencies & Build Config
+
