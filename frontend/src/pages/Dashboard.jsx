@@ -156,7 +156,7 @@ function Dashboard() {
     setIsDispatched(false);
 
     // AI Python Backend (Needs separate deployment later if you want it live)
-    fetch("http://localhost:5000/predict", {
+    fetch("https://ml-service-9uke.onrender.com/predict", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
