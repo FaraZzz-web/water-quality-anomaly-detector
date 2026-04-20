@@ -8,7 +8,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import html2canvas from "html2canvas";
-import { jsPDF } from "js-pdf";
+import { jsPDF } from "jspdf";
 
 function Dashboard() {
   const [readings, setReadings] = useState([]);
