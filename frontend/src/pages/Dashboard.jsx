@@ -981,15 +981,18 @@ function Dashboard() {
                       <button
                         onClick={() => {
                           setIsDispatched(true);
-                          fetch("http://localhost:5000/dispatch", {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({
-                              location: formData.location,
-                              ph: forecastReport.future_ph,
-                              turbidity: forecastReport.future_turbidity,
-                            }),
-                          })
+                          fetch(
+                            "https://ml-service-9uke.onrender.com/dispatch",
+                            {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({
+                                location: formData.location,
+                                ph: forecastReport.future_ph,
+                                turbidity: forecastReport.future_turbidity,
+                              }),
+                            },
+                          )
                             .then(() => setIsDispatched(true))
                             .catch(() => setIsDispatched(false));
                         }}
