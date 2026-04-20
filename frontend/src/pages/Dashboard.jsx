@@ -55,7 +55,7 @@ function Dashboard() {
   // ----------------------------------------------
 
   const fetchReadings = () => {
-    fetch("http://localhost:8080/api/readings")
+    fetch("https://water-quality-backend-0z6s.onrender.com/api/readings")
       .then((response) => response.json())
       .then((data) => {
         const sortedData = data.sort((a, b) => a.id - b.id);
@@ -97,8 +97,8 @@ function Dashboard() {
     if (e) e.preventDefault();
 
     const url = editingId
-      ? `http://localhost:8080/api/readings/${editingId}`
-      : "http://localhost:8080/api/readings";
+      ? `https://water-quality-backend-0z6s.onrender.com/api/readings/${editingId}`
+      : "https://water-quality-backend-0z6s.onrender.com/api/readings";
     const method = editingId ? "PUT" : "POST";
 
     const isCritical = forecastReport
@@ -155,6 +155,7 @@ function Dashboard() {
     setForecastReport(null);
     setIsDispatched(false);
 
+    // AI Python Backend (Needs separate deployment later if you want it live)
     fetch("http://localhost:5000/predict", {
       method: "POST",
       headers: { "Content-Type": "application/json" },

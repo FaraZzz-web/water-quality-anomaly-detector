@@ -6,7 +6,7 @@ function Anomalies() {
 
   useEffect(() => {
     // Fetch all readings and filter out only the dangerous ones
-    fetch("http://localhost:8080/api/readings")
+    fetch("https://water-quality-backend-0z6s.onrender.com/api/readings")
       .then((response) => response.json())
       .then((data) => {
         // Filter for anomalies and sort so the newest ones are at the top

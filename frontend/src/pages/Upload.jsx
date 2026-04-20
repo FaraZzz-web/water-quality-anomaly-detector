@@ -27,7 +27,7 @@ function Upload() {
     try {
       // Axios ke zariye request bhejo, Content-Type auto set ho jayega boundary ke sath
       const response = await axios.post(
-        "http://localhost:8080/api/readings/upload",
+        "https://water-quality-backend-0z6s.onrender.com/api/readings/upload",
         formData,
         {
           headers: {

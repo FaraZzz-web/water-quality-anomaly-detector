@@ -16,11 +16,14 @@ function Login() {
 
     try {
       // 1. Spring Boot ke API par request bhej rahe hain
-      const response = await fetch("http://localhost:8080/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      });
+      const response = await fetch(
+        "https://water-quality-backend-0z6s.onrender.com/api/auth/login",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, password }),
+        },
+      );
 
       // 2. Agar Spring Boot ne 'OK' bola (Password sahi hai)
       if (response.ok) {
