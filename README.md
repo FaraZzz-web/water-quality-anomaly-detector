@@ -27,6 +27,10 @@ Luqora is built to handle environmental data with precision. It features a high-
 * **JWT Implementation:** Secure tokens issued on login, stored in `localStorage`.
 * **Route Protection:** Custom `ProtectedRoute` component ensures that the `/dashboard`, `/upload`, and `/anomalies` pages are invisible to unauthorized users.
 * **Session Management:** Integrated Logout functionality that clears tokens and redirects users instantly.
+### Login Details
+In order to see the dashboard,
+* Username: admin@water.com
+* password: password123
 
 ### 📊 Frontend Dashboard
 * **Dynamic UI:** Responsive design that adapts to all screen sizes.
@@ -37,7 +41,6 @@ Luqora is built to handle environmental data with precision. It features a high-
 * **Public Access:** A dedicated portal for citizens to view safety reports without needing an account.
 
 ---
-
 ## 📂 Project Structure (Frontend & Backend)
 ```text
 src/
@@ -63,4 +66,3 @@ waterquality/                     # Spring Boot Backend Root
 │   └── application.properties   # Database credentials and JWT secrets
 │
 └── pom.xml                      # Maven Dependencies & Build Config
-
